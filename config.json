@@ -1,0 +1,18 @@
+﻿{
+  "connectionName": "宽带连接",
+  "credentialFile": "secrets\\credential.dat",
+  "checkIntervalSeconds": 10,
+  "connectRetryDelaySeconds": 5,
+  "maxBackoffSeconds": 300,
+  "maxTransientRetries": 0,
+  "maxAuthFailures": 3,
+  "requirePhysicalAdapter": true,
+  "physicalAdapterName": "",
+  "skipWhenInternetAvailable": false,
+  "verifyConnectedAfterDialSeconds": 3,
+  "showErrorPopup": false,
+  "installDelaySeconds": 20,
+  "logLevel": "Info",
+  "logMaxKB": 1024,
+  "logKeepFiles": 5
+}

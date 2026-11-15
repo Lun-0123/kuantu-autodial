@@ -1,0 +1,8 @@
+secrets/
+logs/
+run/
+*.log
+*.dat
+*.bak
+Thumbs.db
+.DS_Store
