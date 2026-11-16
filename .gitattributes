@@ -1,0 +1,2 @@
+# Windows batch files must keep CRLF; otherwise cmd.exe splits commands incorrectly.
+*.cmd -text
