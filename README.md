@@ -16,6 +16,23 @@
 
 不装驱动、不装运行时、不修改 DNS/防火墙，整个目录约 210 KB，复制到任意文件夹即可使用。
 
+## 下载安装（推荐）
+
+直接下载单文件安装器：
+
+**[KuanTu-Setup.exe](dist/KuanTu-Setup.exe)**
+
+- 约 97 KB
+- 双击运行即可，无需解压
+- 自动安装到 `%LOCALAPPDATA%\KuanTu`
+- 不需要管理员权限
+
+SHA-256：
+
+```text
+8B0BFAACF95CEB12BF9A55D1C53BC6CDA2A2E4FE9AEAC5B4A47B26D2375209A9
+```
+
 ## 关于宽途
 
 “宽”取自**宽带**，“途”寓意**一路畅通**。
@@ -100,7 +117,7 @@
 └─ secrets\                  # 运行时创建（DPAPI 密文）
 ```
 
-软件目录约 210 KB，可复制到任意文件夹使用；如果使用 `KuanTu-Setup.exe`，默认安装到 `%LOCALAPPDATA%\KuanTu`。
+源码目录约 210 KB，可复制到任意文件夹使用；`dist\KuanTu-Setup.exe` 约 97 KB，默认安装到 `%LOCALAPPDATA%\KuanTu`。
 
 ---
 
