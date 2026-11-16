@@ -3,48 +3,47 @@
 .SYNOPSIS
     停止宽途后台拨号，并移除开机自启，便于安全地重命名/移动文件夹。
 .DESCRIPTION
-    只移除“自启”和“当前守护进程”，不删除 config.json、secrets 或日志。
-    重新启用：重新打开“宽带自动拨号设置.exe”并保存设置，或运行 Install.cmd。
+    不加载 AutoDialer.Core.ps1，因此不会触发 Add-Type 的临时文件问题。
+    只停止守护进程、禁用计划任务、移除启动快捷方式；不删除账号、配置、日志或凭据。
 #>
 [CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'SilentlyContinue'
-. (Join-Path $PSScriptRoot 'AutoDialer.Core.ps1')
+$taskName = 'AutoDialer-Broadband'
+$startupLink = Join-Path ([Environment]::GetFolderPath('Startup')) 'AutoDialer.lnk'
 
-$removed = @()
+$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($null -ne $task) {
+    Disable-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue | Out-Null
+    Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+}
 
-try {
-    $task = Get-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
-    if ($null -ne $task) {
-        Disable-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue | Out-Null
-        Stop-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
-        $removed += '计划任务已禁用'
+$stopped = 0
+$daemonPath = Join-Path $PSScriptRoot 'AutoDialer.ps1'
+$daemonPattern = '-File\s+"?' + [regex]::Escape($daemonPath) + '"?\s*$'
+$processes = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.CommandLine -and
+        $_.CommandLine -match $daemonPattern -and
+        $_.ProcessId -ne $PID
+    }
+
+foreach ($process in $processes) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    if (-not (Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue)) {
+        $stopped++
     }
 }
-catch {
-}
 
-$startupLink = Join-Path ([Environment]::GetFolderPath('Startup')) $script:AutoDialerStartupLinkName
 if (Test-Path -LiteralPath $startupLink) {
     Remove-Item -LiteralPath $startupLink -Force -ErrorAction SilentlyContinue
-    if (-not (Test-Path -LiteralPath $startupLink)) {
-        $removed += '启动文件夹快捷方式已移除'
-    }
 }
-
-& (Join-Path $PSScriptRoot 'Control.ps1') -Action Stop | Out-Host
-$stopCode = $LASTEXITCODE
 
 Write-Host ''
 Write-Host '宽途已停止。' -ForegroundColor Green
-if ($removed.Count -gt 0) {
-    Write-Host ('已处理：' + ($removed -join '；')) -ForegroundColor DarkGray
-}
+Write-Host ('已停止守护进程：' + $stopped + ' 个') -ForegroundColor DarkGray
+Write-Host '计划任务已禁用，启动快捷方式已移除。' -ForegroundColor DarkGray
 Write-Host '现在可以重命名或移动整个文件夹。' -ForegroundColor Cyan
 Write-Host '重新启用：重新打开“宽带自动拨号设置.exe”并保存，或运行 Install.cmd。' -ForegroundColor DarkGray
-
-if ($stopCode -ne 0) {
-    exit $stopCode
-}
 exit 0
