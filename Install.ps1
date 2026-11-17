@@ -104,6 +104,13 @@ function Remove-AutoDialerAutostart {
 
     $task = Get-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
     if ($null -ne $task) {
+        # 先停止正在运行的任务，避免任务实例占用导致 Unregister-ScheduledTask 拒绝访问。
+        try {
+            Stop-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
+            Start-Sleep -Milliseconds 800
+        }
+        catch {
+        }
         Unregister-ScheduledTask -TaskName $script:AutoDialerTaskName -Confirm:$false
         Write-Host "已移除旧计划任务：$script:AutoDialerTaskName"
     }
@@ -179,35 +186,61 @@ else {
 }
 
 if ($PSCmdlet.ShouldProcess('当前用户自启项', "安装 AutoDialer（模式：$Mode）")) {
-    try {
-        Remove-AutoDialerAutostart -Root $PSScriptRoot
-    }
-    catch {
-        Write-Warning "清理旧自启项时出现问题：$($_.Exception.Message)"
-    }
-
     $installedMode = $null
     $taskInstalled = $false
-    if ($Mode -eq 'Task') {
+    $desiredVbs = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'AutoDialer.vbs'))
+    $existingTask = Get-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
+    $existingTaskMatches = $false
+
+    if ($null -ne $existingTask -and $existingTask.Actions.Count -gt 0) {
         try {
-            Install-AutoDialerTask -Root $PSScriptRoot -DelaySeconds $config.installDelaySeconds
-            $taskInstalled = $true
-            $installedMode = '计划任务（登录触发，固定延迟约 ' + $config.installDelaySeconds + ' 秒）'
+            $existingVbs = ([string]$existingTask.Actions[0].Arguments).Trim().Trim('"')
+            $existingTaskMatches = ([IO.Path]::GetFullPath($existingVbs) -eq $desiredVbs)
         }
         catch {
-            $taskError = $_.Exception.Message
-            Write-Warning "计划任务注册失败：$taskError"
-            if ($NoFallback) {
-                throw '计划任务注册失败，且已指定 -NoFallback。'
+        }
+    }
+
+    if ($Mode -eq 'Task' -and $existingTaskMatches) {
+        # 任务已指向当前目录时直接复用；避免在任务实例运行中重复注册导致拒绝访问。
+        try {
+            Enable-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue | Out-Null
+            Start-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
+        }
+        catch {
+        }
+        $taskInstalled = $true
+        $installedMode = '计划任务（沿用当前目录的现有任务）'
+    }
+    else {
+        try {
+            Remove-AutoDialerAutostart -Root $PSScriptRoot
+        }
+        catch {
+            Write-Warning "清理旧自启项时出现问题：$($_.Exception.Message)"
+        }
+
+        if ($Mode -eq 'Task') {
+            try {
+                Install-AutoDialerTask -Root $PSScriptRoot -DelaySeconds $config.installDelaySeconds
+                $taskInstalled = $true
+                $installedMode = '计划任务（登录触发，固定延迟约 ' + $config.installDelaySeconds + ' 秒）'
             }
-            Write-Host '改用当前用户启动文件夹。' -ForegroundColor Yellow
+            catch {
+                $taskError = $_.Exception.Message
+                Write-Warning "计划任务注册失败：$taskError"
+                if ($NoFallback) {
+                    throw '计划任务注册失败，且已指定 -NoFallback。'
+                }
+                Write-Host '改用当前用户启动文件夹。' -ForegroundColor Yellow
+                $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
+                $installedMode = "启动文件夹（$link）"
+            }
+        }
+        else {
             $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
             $installedMode = "启动文件夹（$link）"
         }
-    }
-    else {
-        $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
-        $installedMode = "启动文件夹（$link）"
     }
 
     Write-Host ''

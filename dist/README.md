@@ -25,10 +25,13 @@ KuanTu-Setup.exe
 SHA-256：
 
 ```text
-0DA3205B307B4C70EE44E23C686595D0CB4C92C383AF5A74E720438E55BCCCB2
+69A2D9A48EE2818F0E2AC70DE74254BB30D307BEE5CB5E4BE56AF5EA83F7FFCF
 ```
 
 适用：Windows 11 + PPPoE 拨号的校园网/宽带；Web 认证、802.1X 场景不适用。
+
+> 如果你已经通过安装器装过宽途，请继续使用 `%LOCALAPPDATA%\KuanTu`；不要在本源码目录再次保存设置，否则会生成第二套自启任务。
+
 
 > 重新打包安装器时，请先排除 `dist` 目录，避免把安装包自身打进 payload。
 
