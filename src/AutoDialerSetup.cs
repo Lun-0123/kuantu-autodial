@@ -791,6 +791,17 @@ namespace AutoDialerSetup
                 StandardErrorEncoding = Encoding.UTF8
             };
 
+            string tempDir = Path.Combine(_baseDirectory, "temp");
+            try
+            {
+                Directory.CreateDirectory(tempDir);
+                startInfo.EnvironmentVariables["TEMP"] = tempDir;
+                startInfo.EnvironmentVariables["TMP"] = tempDir;
+            }
+            catch
+            {
+            }
+
             using (Process process = Process.Start(startInfo))
             {
                 string output = process.StandardOutput.ReadToEnd();

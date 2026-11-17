@@ -6,3 +6,4 @@ run/
 *.bak
 Thumbs.db
 .DS_Store
+temp/

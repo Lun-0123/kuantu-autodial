@@ -590,6 +590,17 @@ function Get-AutoDialerSecret {
     }
 }
 
+$autoDialerTempDir = Join-Path $script:AutoDialerRoot 'temp'
+try {
+    if (-not (Test-Path -LiteralPath $autoDialerTempDir)) {
+        New-Item -ItemType Directory -Path $autoDialerTempDir -Force | Out-Null
+    }
+    $env:TEMP = $autoDialerTempDir
+    $env:TMP = $autoDialerTempDir
+}
+catch {
+}
+
 if (-not ('AutoDialer.NativeRas' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
