@@ -96,6 +96,24 @@ function Install-AutoDialerStartupShortcut {
     return $linkPath
 }
 
+function Install-AutoDialerRunEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $valueName = 'KuanTu-AutoDialer'
+    $vbs = Join-Path $Root 'AutoDialer.vbs'
+    $command = 'wscript.exe "' + $vbs + '"'
+
+    if (-not (Test-Path -LiteralPath $runKey)) {
+        New-Item -Path $runKey -Force | Out-Null
+    }
+    Set-ItemProperty -Path $runKey -Name $valueName -Value $command -Type String
+    return $command
+}
+
 function Remove-AutoDialerAutostart {
     param(
         [Parameter(Mandatory = $true)]
@@ -119,6 +137,11 @@ function Remove-AutoDialerAutostart {
     if (Test-Path -LiteralPath $startupLink) {
         Remove-Item -LiteralPath $startupLink -Force
         Write-Host "已移除旧启动快捷方式：$startupLink"
+    }
+
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    if (Test-Path -LiteralPath $runKey) {
+        Remove-ItemProperty -Path $runKey -Name 'KuanTu-AutoDialer' -ErrorAction SilentlyContinue
     }
 }
 
@@ -191,6 +214,7 @@ if ($PSCmdlet.ShouldProcess('当前用户自启项', "安装 AutoDialer（模式
     $desiredVbs = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'AutoDialer.vbs'))
     $existingTask = Get-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
     $existingTaskMatches = $false
+    $existingVbs = $null
 
     if ($null -ne $existingTask -and $existingTask.Actions.Count -gt 0) {
         try {
@@ -201,8 +225,11 @@ if ($PSCmdlet.ShouldProcess('当前用户自启项', "安装 AutoDialer（模式
         }
     }
 
-    if ($Mode -eq 'Task' -and $existingTaskMatches) {
-        # 任务已指向当前目录时直接复用；避免在任务实例运行中重复注册导致拒绝访问。
+    if ($Mode -eq 'Task' -and $null -ne $existingTask) {
+        # 已存在同名任务时优先复用，避免任务实例运行中重复注册被拒绝访问。
+        if ($existingVbs -and -not $existingTaskMatches) {
+            Write-Warning "现有计划任务指向：$existingVbs；将继续使用该任务。"
+        }
         try {
             Enable-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue | Out-Null
             Start-ScheduledTask -TaskName $script:AutoDialerTaskName -ErrorAction SilentlyContinue
@@ -210,7 +237,7 @@ if ($PSCmdlet.ShouldProcess('当前用户自启项', "安装 AutoDialer（模式
         catch {
         }
         $taskInstalled = $true
-        $installedMode = '计划任务（沿用当前目录的现有任务）'
+        $installedMode = '计划任务（沿用现有任务）'
     }
     else {
         try {
@@ -233,13 +260,27 @@ if ($PSCmdlet.ShouldProcess('当前用户自启项', "安装 AutoDialer（模式
                     throw '计划任务注册失败，且已指定 -NoFallback。'
                 }
                 Write-Host '改用当前用户启动文件夹。' -ForegroundColor Yellow
-                $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
-                $installedMode = "启动文件夹（$link）"
+                try {
+                    $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
+                    $installedMode = "启动文件夹（$link）"
+                }
+                catch {
+                    Write-Warning "启动文件夹快捷方式失败：$($_.Exception.Message)"
+                    $runCommand = Install-AutoDialerRunEntry -Root $PSScriptRoot
+                    $installedMode = "当前用户 Run 注册表（$runCommand）"
+                }
             }
         }
         else {
-            $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
-            $installedMode = "启动文件夹（$link）"
+            try {
+                $link = Install-AutoDialerStartupShortcut -Root $PSScriptRoot
+                $installedMode = "启动文件夹（$link）"
+            }
+            catch {
+                Write-Warning "启动文件夹快捷方式失败：$($_.Exception.Message)"
+                $runCommand = Install-AutoDialerRunEntry -Root $PSScriptRoot
+                $installedMode = "当前用户 Run 注册表（$runCommand）"
+            }
         }
     }
 

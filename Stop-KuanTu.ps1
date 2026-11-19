@@ -40,6 +40,11 @@ if (Test-Path -LiteralPath $startupLink) {
     Remove-Item -LiteralPath $startupLink -Force -ErrorAction SilentlyContinue
 }
 
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+if (Test-Path -LiteralPath $runKey) {
+    Remove-ItemProperty -Path $runKey -Name 'KuanTu-AutoDialer' -ErrorAction SilentlyContinue
+}
+
 Write-Host ''
 Write-Host '宽途已停止。' -ForegroundColor Green
 Write-Host ('已停止守护进程：' + $stopped + ' 个') -ForegroundColor DarkGray

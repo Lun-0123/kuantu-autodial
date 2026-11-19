@@ -58,6 +58,11 @@ else {
     Write-Host '未发现启动文件夹快捷方式。'
 }
 
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+if (Test-Path -LiteralPath $runKey) {
+    Remove-ItemProperty -Path $runKey -Name 'KuanTu-AutoDialer' -ErrorAction SilentlyContinue
+}
+
 $stopped = 0
 if ($PSCmdlet.ShouldProcess('AutoDialer 后台进程', '停止')) {
     $stopped = Stop-AutoDialerProcess
